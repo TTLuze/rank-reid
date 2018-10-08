@@ -15,6 +15,7 @@ from keras.models import load_model
 
 from utils.file_helper import write
 
+#test for branch
 
 def extract_info(dir_path):
     infos = []
