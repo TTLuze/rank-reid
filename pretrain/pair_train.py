@@ -172,10 +172,10 @@ def pair_tune(source_model_path, train_generator, val_generator, tune_dataset, b
                         epochs=20,
                         validation_data=val_generator,
                         validation_steps=1800 / batch_size + 1,
-                        callbacks=[auto_lr, early_stopping])
+                        callbacks=[auto_lr,
+
+                                   early_stopping])
     model.save(tune_dataset + '_pair_pretrain.h5')
-
-
 
 def pair_pretrain_on_dataset(source, project_path='../', dataset_parent='../../dataset'):
     if source == 'market':
@@ -232,12 +232,13 @@ if __name__ == '__main__':
     for source in sources:
         softmax_pretrain_on_dataset(source)
         pair_pretrain_on_dataset(source)
+
     #sources = ['grid-cv-%d' % i for i in range(10)]
-    for source in sources:
-        softmax_pretrain_on_dataset(source,
-                                    project_path='/home/cwh/coding/rank-reid',
-                                    dataset_parent='/home/cwh/coding')
-        pair_pretrain_on_dataset(source,
-                                 project_path='/home/cwh/coding/rank-reid',
-                                 dataset_parent='/home/cwh/coding')
+    #for source in sources:
+    #    softmax_pretrain_on_dataset(source,
+    #                                project_path='/home/cwh/coding/rank-reid',
+    #                                dataset_parent='/home/cwh/coding')
+    #    pair_pretrain_on_dataset(source,
+    #                             project_path='/home/cwh/coding/rank-reid',
+    #                             dataset_parent='/home/cwh/coding')
 

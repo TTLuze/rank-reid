@@ -89,16 +89,16 @@ def grid_eval(source, transform_dir):
 def market_eval(source, transform_dir):
     target = 'market'
     test_pair_predict(source + '_pair_pretrain.h5',
-                          transform_dir + '/probe', transform_dir + '/test',
-                          source + '_' + target + '_pid.log', source + '_' + target + '_score.log')
-
+                          transform_dir + '/query', transform_dir + '/bounding_box_test',
+                          'market_market_pid.log', 'market_market_score.log')
 
 if __name__ == '__main__':
-    market_eval('market', '/home/cwh/coding/Market-1501')
+    #market_eval('market', '../../dataset/Market-1501')
     market_result_eval('market_market_pid.log',
-                       TEST='/home/cwh/coding/Market-1501/test',
-                       QUERY='/home/cwh/coding/Market-1501/probe')
-    grid_eval('market', '/home/cwh/coding/grid_train_probe_gallery/cross0')
-    grid_result_eval('/home/cwh/coding/TrackViz/data/market_grid-cv0-test/cross_filter_pid.log')
+                       TEST='../../dataset/Market-1501/bounding_box_test',
+                       QUERY='../../dataset/Market-1501/query')
+
+    #grid_eval('market', '/home/cwh/coding/grid_train_probe_gallery/cross0')
+    #grid_result_eval('/home/cwh/coding/TrackViz/data/market_grid-cv0-test/cross_filter_pid.log')
 
 
