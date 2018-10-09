@@ -1,4 +1,5 @@
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 import numpy as np
 from keras import Input
@@ -135,7 +136,7 @@ def pair_model(source_model_path, num_classes):
     model = Model(inputs=[img1, img2], outputs=[category_predict1, category_predict2, judge])
     model.get_layer('ctg_out_1').set_weights(softmax_model.get_layer('fc8').get_weights())
     model.get_layer('ctg_out_2').set_weights(softmax_model.get_layer('fc8').get_weights())
-    plot_model(model, to_file='model_combined.png')
+    #plot_model(model, to_file='model_combined.png')
     # for layer in base_model.layers[:-10]:
     #     layer.trainable = False
     for layer in base_model.layers:
@@ -176,10 +177,10 @@ def pair_tune(source_model_path, train_generator, val_generator, tune_dataset, b
 
 
 
-def pair_pretrain_on_dataset(source, project_path='/home/cwh/coding/rank-reid', dataset_parent='/home/cwh/coding'):
+def pair_pretrain_on_dataset(source, project_path='../', dataset_parent='../../dataset'):
     if source == 'market':
         train_list = project_path + '/dataset/market_train.list'
-        train_dir = dataset_parent + '/Market-1501/train'
+        train_dir = dataset_parent + '/Market-1501/bounding_box_train'
         class_count = 751
     elif source == 'markets1':
         train_list = project_path + '/dataset/markets1_train.list'
@@ -217,7 +218,7 @@ def pair_pretrain_on_dataset(source, project_path='/home/cwh/coding/rank-reid', 
     class_img_labels = reid_data_prepare(train_list, train_dir)
     batch_size = 16
     pair_tune(
-        source + '_softmax_pretrain.h5',
+        "../baseline/"+source + '_softmax_pretrain.h5',
         pair_generator(class_img_labels, batch_size=batch_size, train=True),
         pair_generator(class_img_labels, batch_size=batch_size, train=False),
         source,
@@ -226,13 +227,12 @@ def pair_pretrain_on_dataset(source, project_path='/home/cwh/coding/rank-reid', 
 
 if __name__ == '__main__':
     # sources = ['cuhk_grid_viper_mix']
-    sources = ['cuhk', 'viper', 'market','duke']
+    #sources = ['cuhk', 'viper', 'market','duke']
+    sources = ['market']
     for source in sources:
-        softmax_pretrain_on_dataset(source,
-                                    project_path='/home/cwh/coding/rank-reid',
-                                    dataset_parent='/home/cwh/coding/')
+        softmax_pretrain_on_dataset(source)
         pair_pretrain_on_dataset(source)
-    sources = ['grid-cv-%d' % i for i in range(10)]
+    #sources = ['grid-cv-%d' % i for i in range(10)]
     for source in sources:
         softmax_pretrain_on_dataset(source,
                                     project_path='/home/cwh/coding/rank-reid',

@@ -1,8 +1,9 @@
 from __future__ import division, print_function, absolute_import
 
 import os
-from random import shuffle
+current_path = os.path.dirname(__file__)
 
+from random import shuffle
 import numpy as np
 
 import tensorflow as tf
@@ -91,6 +92,9 @@ def load_data(LIST, TRAIN):
 
 
 def softmax_model_pretrain(train_list, train_dir, class_count, target_model_path):
+    if os.path.exists(current_path+"/"+target_model_path):
+        return
+
     images, labels = load_data(train_list, train_dir)
     #config = tf.ConfigProto()
     #config.gpu_options.allow_growth = True
@@ -125,7 +129,7 @@ def softmax_model_pretrain(train_list, train_dir, class_count, target_model_path
         train_datagen.flow(images, labels, batch_size=batch_size),
         steps_per_epoch=len(images) / batch_size + 1, epochs=40,
     )
-    net.save(target_model_path)
+    net.save(current_path+"/"+target_model_path)
 
 
 def softmax_pretrain_on_dataset(source, project_path='../', dataset_parent='../../dataset'):
