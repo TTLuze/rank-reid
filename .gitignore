@@ -99,3 +99,5 @@ ENV/
 
 .pretrained-model/
 *.h5
+
+*.bat
