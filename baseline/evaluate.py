@@ -1,7 +1,7 @@
 from __future__ import division, print_function, absolute_import
 
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import tensorflow as tf
@@ -92,9 +92,8 @@ def sort_similarity(query_f, test_f):
     return result, result_argsort
 
 
-def map_rank_quick_eval(query_info, test_info, result_argsort, flag=0):
+def map_rank_quick_eval(query_info, test_info, result_argsort):
     # much more faster than hehefan's evaluation
-    # flag=1: eval for trainset; flag=0: eval for testset.
     match = []
     junk = []
     QUERY_NUM = len(query_info)
@@ -102,7 +101,7 @@ def map_rank_quick_eval(query_info, test_info, result_argsort, flag=0):
     for q_index, (qp, qc) in enumerate(query_info):
         tmp_match = []
         tmp_junk = []
-        for t_index in range(len(test_info)-flag):
+        for t_index in range(len(result_argsort[q_index])):
             p_t_idx = result_argsort[q_index][t_index]
             p_info = test_info[int(p_t_idx)]
 
@@ -183,24 +182,23 @@ def test_predict(net, probe_path, gallery_path, pid_path, score_path):
     for i in range(len(result)):
         result[i] = result[i][result_argsort[i]]
     result = np.array(result)
-    np.savetxt(pid_path, result_argsort, fmt='%d')
-    np.savetxt(score_path, result, fmt='%.4f')
+    #np.savetxt(pid_path, result_argsort, fmt='%d')
+    #np.savetxt(score_path, result, fmt='%.4f')
+    return result_argsort
 
 
-def market_result_eval(predict_path, log_path='market_result_eval.log', TEST='Market-1501/test',
-                       QUERY='Market-1501/probe', flag=0):
-    # flag=1: eval for trainset; flag=0: eval for testset.
+def market_result_eval(result_argsort, log_path='market_result_eval.log', TEST='Market-1501/test',
+                       QUERY='Market-1501/probe'):
 
-    res = np.genfromtxt(predict_path, delimiter=' ')
+    #res = np.genfromtxt(predict_path, delimiter=' ')
+    res = result_argsort
     print('predict info get, extract gallery info start')
     test_info = extract_info(TEST)
     print('extract probe info start')
     query_info = extract_info(QUERY)
     print('start evaluate map and rank acc')
-    rank1, mAP = map_rank_quick_eval(query_info, test_info, res, flag)
-    write(log_path, predict_path + '\n')
+    rank1, mAP = map_rank_quick_eval(query_info, test_info, res)
     write(log_path, '%f\t%f\n' % (rank1, mAP))
-
 
 def grid_result_eval(predict_path, log_path='grid_eval.log'):
     pids4probes = np.genfromtxt(predict_path, delimiter=' ')
@@ -237,22 +235,12 @@ if __name__ == '__main__':
     #testset eval
     test_path = '../../dataset' + '/Market-1501/bounding_box_test'
     probe_path = '../../dataset' + '/Market-1501/query'
-    pid_path = 'testset_prediction.log'  # recording the predict index info
+    pid_path = 'testset_prediction.log'
     score_path = 'testset_score.log'  # recording the distace info
-    #test_predict(net, probe_path, test_path, pid_path, score_path)
-    market_result_eval(pid_path, log_path='testset_eval.log', TEST=test_path,
-                       QUERY=probe_path,flag=0)
-    '''
-    #trainset eval
-    train_path = '../../dataset' + '/Market-1501/bounding_box_train'
-    pid_path = 'trainset_prediction.log'  # recording the predict index info
-    score_path = 'trainset_score.log'  # recording the distace info
-    train_predict(net, train_path, pid_path, score_path)
-    market_result_eval(pid_path, log_path='trainset_eval.log', TEST=train_path,
-                        QUERY=train_path, flag=1)
-    '''
+    result_argsort = test_predict(net, probe_path, test_path, pid_path, score_path) # recording the predict index info
 
-
+    market_result_eval(result_argsort, log_path='testset_eval.log', TEST=test_path,
+                       QUERY=probe_path)
 
 
 

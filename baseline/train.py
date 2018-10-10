@@ -124,7 +124,7 @@ def softmax_model_pretrain(train_list, train_dir, class_count, target_model_path
         width_shift_range=0.2,  # 0.
         height_shift_range=0.2)
 
-    net.compile(optimizer=SGD(lr=0.001, momentum=0.9), loss='categorical_crossentropy', metrics=['accuracy'])
+    net.compile(optimizer=SGD(lr=0.001, momentum=0.9, decay=0.00), loss='categorical_crossentropy', metrics=['accuracy'])
     net.fit_generator(
         train_datagen.flow(images, labels, batch_size=batch_size),
         steps_per_epoch=len(images) / batch_size + 1, epochs=40,
@@ -153,8 +153,8 @@ def softmax_pretrain_on_dataset(source, project_path='../', dataset_parent='../.
         train_list = project_path + '/dataset/duke_train.list'
         train_dir = dataset_parent + '/DukeMTMC-reID/train'
         class_count = 702
-    elif 'grid-cv' in source:
         cv_idx = int(source.split('-')[-1])
+    elif 'grid-cv' in source:
         train_list = project_path + '/dataset/grid-cv/%d.list' % cv_idx
         train_dir = dataset_parent + '/underground_reid/cross%d/train' % cv_idx
         class_count = 125

@@ -27,7 +27,8 @@ def test_pair_predict(pair_model_path, target_probe_path, target_gallery_path, p
     model = Model(inputs=[model.get_layer('resnet50').get_input_at(0)],
                   outputs=[model.get_layer('resnet50').get_output_at(0)])
     # model = Model(inputs=[model.input], outputs=[model.get_layer('avg_pool').output])
-    test_predict(model, target_probe_path, target_gallery_path, pid_path, score_path)
+    result_argsort = test_predict(model, target_probe_path, target_gallery_path, pid_path, score_path)
+    return result_argsort
 
 
 def extract_imgs(dir_path):
@@ -88,13 +89,14 @@ def grid_eval(source, transform_dir):
 
 def market_eval(source, transform_dir):
     target = 'market'
-    test_pair_predict(source + '_pair_pretrain.h5',
+    result_argsort = test_pair_predict(source + '_pair_pretrain.h5',
                           transform_dir + '/query', transform_dir + '/bounding_box_test',
                           'market_market_pid.log', 'market_market_score.log')
+    return result_argsort
 
 if __name__ == '__main__':
-    #market_eval('market', '../../dataset/Market-1501')
-    market_result_eval('market_market_pid.log',
+    result_argsort = market_eval('market', '../../dataset/Market-1501')
+    market_result_eval(result_argsort,
                        TEST='../../dataset/Market-1501/bounding_box_test',
                        QUERY='../../dataset/Market-1501/query')
 
