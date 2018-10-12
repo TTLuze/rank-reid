@@ -1,6 +1,0 @@
-baseline：
-decay=0， epoch=40时，rank 1为0.76，map为0.58
-
-market_softmax_pretrain_f2:
-epoch=50,decay=0.01, rank1为0.288599；mAP为0.176
-结果是因为decay设置得太大，因为decay是每个batch都要执行一次衰减，不是每个epoch

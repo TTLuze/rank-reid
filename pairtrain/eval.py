@@ -10,26 +10,11 @@ from baseline.evaluate import train_predict, test_predict, grid_result_eval, mar
 from transfer.simple_rank_transfer import cross_entropy_loss
 
 
-#
-
-
 def train_pair_predict(pair_model_path, target_train_path, pid_path, score_path):
     model = load_model(pair_model_path)
     model = Model(inputs=[model.get_layer('resnet50').get_input_at(0)],
                   outputs=[model.get_layer('resnet50').get_output_at(0)])
     train_predict(model, target_train_path, pid_path, score_path)
-
-
-def test_pair_predict(pair_model_path, target_probe_path, target_gallery_path, pid_path, score_path):
-    # todo
-    model = load_model(pair_model_path)
-    # model = ResNet50(weights='imagenet', include_top=False, input_tensor=Input(shape=(224, 224, 3)))
-    model = Model(inputs=[model.get_layer('resnet50').get_input_at(0)],
-                  outputs=[model.get_layer('resnet50').get_output_at(0)])
-    # model = Model(inputs=[model.input], outputs=[model.get_layer('avg_pool').output])
-    result_argsort = test_predict(model, target_probe_path, target_gallery_path, pid_path, score_path)
-    return result_argsort
-
 
 def extract_imgs(dir_path):
     imgs = []
@@ -86,21 +71,27 @@ def grid_eval(source, transform_dir):
                           source + '_' + target + '_pid.log', source + '_' + target + '_score.log')
         grid_result_eval(source + '_' + target + '_pid.log', 'gan.log')
 
+def test_pair_predict(pair_model_path, target_probe_path, target_gallery_path, pid_path, score_path):
+    # todo
+    model = load_model(pair_model_path)
+    # model = ResNet50(weights='imagenet', include_top=False, input_tensor=Input(shape=(224, 224, 3)))
+    model = Model(inputs=[model.get_layer('resnet50').get_input_at(0)],
+                  outputs=[model.get_layer('resnet50').get_output_at(0)])
+    # model = Model(inputs=[model.input], outputs=[model.get_layer('avg_pool').output])
+    result_argsort = test_predict(model, target_probe_path, target_gallery_path, pid_path, score_path)
+    return result_argsort
 
 def market_eval(source, transform_dir):
-    target = 'market'
     result_argsort = test_pair_predict(source + '_pair_pretrain.h5',
                           transform_dir + '/query', transform_dir + '/bounding_box_test',
                           'market_market_pid.log', 'market_market_score.log')
     return result_argsort
 
+
 if __name__ == '__main__':
-    result_argsort = market_eval('market', '../../dataset/Market-1501')
+    result_argsort = market_eval('market', '../../dataset/Market-1501') #result_argsort为对每个probe来说，跟根据分数的gallery的下标
     market_result_eval(result_argsort,
                        TEST='../../dataset/Market-1501/bounding_box_test',
                        QUERY='../../dataset/Market-1501/query')
-
-    #grid_eval('market', '/home/cwh/coding/grid_train_probe_gallery/cross0')
-    #grid_result_eval('/home/cwh/coding/TrackViz/data/market_grid-cv0-test/cross_filter_pid.log')
 
 
