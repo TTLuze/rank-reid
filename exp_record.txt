@@ -17,6 +17,15 @@ rank-reid复现Dis. /baseline， /pretrain
 可能的原因：1）利用resnet的时候，不应该加上avg_pooling层；2）不需要用baseline预训练，直接用pre-trained来V+I
 
 
+/baseline-dis 我们的复现
+evaluate_v2.py 目的是优化predict的效率。把predict的batchsize设置为128，时间开销从250s到50s
+
+keras中调用pretrained resnet和vgg的时候，数据的预处理需要用caffe mode，因为这个.h5文件是直接从caffe模型转化过来的
+numpy读入图像时，想要把多张图像读入内存，成为numpy，但是numpy的扩展拼接函数效率都不高，在已知数组总大小时可以
+考虑直接分配好，然后赋值；
+目前发现最快是，用list.append来循环读，然后用np.array(list)转化
+numpy的两个拼接 append和concatenate，都比较慢，不适合读入大规模数据
+
 =======================
 single_eval.py
 目的是可以自定义probe和gallery，突然发现了为啥这么慢，因为net.predicts是逐个样本预测
