@@ -11,12 +11,13 @@ from keras.applications.resnet50 import ResNet50
 from keras.applications.resnet50 import preprocess_input
 from keras.backend.tensorflow_backend import set_session
 from keras.initializers import RandomNormal
-from keras.layers import Dense, Flatten, Dropout, GlobalAveragePooling2D
+from keras.layers import Dense, Flatten, Dropout, GlobalAveragePooling2D, AveragePooling2D
 from keras.layers import Input
 from keras.models import Model
 from keras.optimizers import SGD
 from keras.preprocessing import image
 from keras.preprocessing.image import ImageDataGenerator
+from keras.callbacks import ModelCheckpoint
 from keras.utils.np_utils import to_categorical
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -108,9 +109,9 @@ def softmax_model_pretrain(train_list, train_dir, class_count, target_model_path
     base_model = ResNet50(weights=resnet50_path, include_top=False, input_tensor=Input(shape=(224, 224, 3)))
 
     x = base_model.output
-    x = GlobalAveragePooling2D(name='avg_pool')(x)
-    #x = AveragePooling2D((7, 7), name='avg_pool')(x)
-    #x = Flatten(name='flatten')(x)
+    #x = GlobalAveragePooling2D(name='avg_pool')(x)
+    x = AveragePooling2D((7, 7), name='avg_pool')(x)
+    x = Flatten(name='flatten')(x)
     x = Dropout(0.5)(x)
     x = Dense(class_count, activation='softmax', name='fc8', kernel_initializer=RandomNormal(mean=0.0, stddev=0.001))(x)
     net = Model(inputs=[base_model.input], outputs=[x])
@@ -125,10 +126,13 @@ def softmax_model_pretrain(train_list, train_dir, class_count, target_model_path
         width_shift_range=0.2,  # 0.
         height_shift_range=0.2)
 
+    checkpointer = ModelCheckpoint('market-bs16-{epoch:02d}.h5', period=50)
+
     net.compile(optimizer=SGD(lr=0.001, momentum=0.9, decay=0.00), loss='categorical_crossentropy', metrics=['accuracy'])
     net.fit_generator(
         train_datagen.flow(images, labels, batch_size=batch_size),
         steps_per_epoch=len(images) / batch_size + 1, epochs=40,
+        callbacks=[checkpointer]
     )
     net.save(current_path+"/"+target_model_path)
 

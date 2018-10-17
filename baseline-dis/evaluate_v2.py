@@ -5,6 +5,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import numpy as np
 import time
+import glob
 import tensorflow as tf
 from keras.applications.resnet50 import ResNet50
 from keras.applications.resnet50 import preprocess_input
@@ -82,6 +83,11 @@ def similarity_matrix(query_f, test_f):
     sess = tf.Session(config=config)
     set_session(sess)
 
+    if query_f.ndim == 4:
+        query_f = np.squeeze(query_f)
+    if test_f.ndim == 4:
+        test_f = np.squeeze(test_f)
+
     result = sess.run(tensor, {query_t: query_f, test_t: test_f})
     print(result.shape)
     # descend
@@ -117,8 +123,9 @@ def map_rank_quick_eval(query_info, test_info, result_argsort):
         junk.append(tmp_junk)
 
     rank_1 = 0.0
+    rank_5 = 0.0
+    rank_10 = 0.0
     mAP = 0.0
-    rank1_list = list()
     for idx in range(len(query_info)):
         if idx % 100 == 0:
             print('evaluate img %d' % idx)
@@ -128,24 +135,17 @@ def map_rank_quick_eval(query_info, test_info, result_argsort):
         YES = match[idx]
         IGNORE = junk[idx]
         ig_cnt = 0
-        for ig in IGNORE:
-            if ig < YES[0]:
-                ig_cnt += 1
-            else:
-                break
-        if ig_cnt >= YES[0]:
-            rank_1 += 1
-            rank1_list.append(1)
-        else:
-            rank1_list.append(0)
 
+        #rank-k acc 计算
+        ig_cnt = len([ x for x in IGNORE if x<YES[0] ])
+        rank_1  += (1 if ig_cnt >= (YES[0]-0) else 0)
+        rank_5  += (1 if ig_cnt >= (YES[0]-4) else 0)
+        rank_10 += (1 if ig_cnt >= (YES[0]-9) else 0)
+
+        #mAP 计算
         for i, k in enumerate(YES):
-            ig_cnt = 0
-            for ig in IGNORE:
-                if ig < k:
-                    ig_cnt += 1
-                else:
-                    break
+            ig_cnt = len([x for x in IGNORE if x < k])
+
             cnt = k + 1 - ig_cnt
             hit = i + 1
             tmp_recall = hit / len(YES)
@@ -156,15 +156,16 @@ def map_rank_quick_eval(query_info, test_info, result_argsort):
 
         mAP += ap
     rank1_acc = rank_1 / QUERY_NUM
+    rank5_acc = rank_5 / QUERY_NUM
+    rank10_acc = rank_10 / QUERY_NUM
     mAP = mAP / QUERY_NUM
-    print('Rank 1:\t%f' % rank1_acc)
+    print('Rank 1:\t%f, Rank 5:\t%f, Rank 10:\t%f' % (rank1_acc, rank5_acc, rank10_acc))
     print('mAP:\t%f' % mAP)
-    np.savetxt('rank_1.log', np.array(rank1_list), fmt='%d')
-    return rank1_acc, mAP
+    return rank1_acc, rank5_acc, rank10_acc, mAP
 
 
 def train_predict(net, train_path, pid_path, score_path):
-    net = Model(inputs=[net.input], outputs=[net.get_layer('avg_pool').output])
+    net = Model(inputs=[net.input], outputs=[net.get_layer('avg_pool').output]) #get_layer('flatten')
     train_f, test_info = extract_feature(train_path, net)
     result, result_argsort = sort_similarity(train_f, train_f)
     for i in range(len(result)):
@@ -175,75 +176,95 @@ def train_predict(net, train_path, pid_path, score_path):
     np.savetxt(pid_path, result_argsort[:, 1:], fmt='%d')
     return result
 
-
-def test_predict(net, probe_path, gallery_path, pid_path, score_path):
-    net = Model(inputs=[net.input], outputs=[net.get_layer('avg_pool').output])
+def test_predict(net, probe_path, gallery_path):
+    net = Model(inputs=[net.input], outputs=[net.get_layer('avg_pool').output]) #get_layer('flatten')
     test_f, test_info = extract_feature(gallery_path, net)
     query_f, query_info = extract_feature(probe_path, net)
     result, result_argsort = sort_similarity(query_f, test_f)
     for i in range(len(result)):
         result[i] = result[i][result_argsort[i]]
-    result = np.array(result)
-    #np.savetxt(pid_path, result_argsort, fmt='%d')
-    #np.savetxt(score_path, result, fmt='%.4f')
-    return result_argsort
+    return result_argsort, test_info, query_info
+
+def extract_feature_MQ(dir_path, gt_path, net):
+    image_data = []
+    infos = []
+    length=[]
+
+    for image_name in sorted(os.listdir(dir_path)):
+        if '.txt' in image_name or '.db' in image_name:
+            continue
+        if 'f' in image_name or 's' in image_name:
+            arr = image_name.split('_')
+            person = int(arr[0])
+            camera = int(arr[1][1])
+        elif 's' not in image_name:
+            # grid
+            arr = image_name.split('_')
+            person = int(arr[0])
+            camera = int(arr[1])
+        else:
+            continue
+        infos.append((person, camera))
+
+        tmp_queries_file = glob.glob(gt_path + '/' + image_name[:7] + '*')
+        tmp_len = len(tmp_queries_file)
+        length.append(tmp_len)
+
+        for path in tmp_queries_file:
+            x = image.load_img(path, target_size=(224, 224))
+            x = image.img_to_array(x)
+            image_data.append(x)
+
+    image_data = np.array(image_data)
+    image_data = preprocess_input(image_data)
+    tmp_features = net.predict(image_data, batch_size=128)
+
+    #将每个用户在每个摄像头下的多张照片，融合成一个query feature
+    index = 0
+    features=[]
+    for tmp_len in length:
+        x = np.mean(tmp_features[index:index+tmp_len],axis=0)
+        #x = np.max(tmp_features[index:index+tmp_len],axis=0)
+        features.append(x)
+        index += tmp_len
+    features = np.array(features)
+    return features, infos
+
+#multiple queries
+def test_predict_MQ(net, probe_path, gt_path, gallery_path):
+    net = Model(inputs=[net.input], outputs=[net.get_layer('avg_pool').output])
+    query_f, query_info = extract_feature_MQ(probe_path, gt_path, net)
+    test_f, test_info = extract_feature(gallery_path, net)
+    result, result_argsort = sort_similarity(query_f, test_f)
+    for i in range(len(result)):
+        result[i] = result[i][result_argsort[i]]
+    return result_argsort, test_info, query_info
 
 
-def market_result_eval(result_argsort, log_path='market_result_eval.log', TEST='Market-1501/test',
-                       QUERY='Market-1501/probe'):
-
-    #res = np.genfromtxt(predict_path, delimiter=' ')
+def market_result_eval(result_argsort, test_info, query_info, log_path='market_result_eval.log'):
     res = result_argsort
-    print('predict info get, extract gallery info start')
-    test_info = extract_info(TEST)
-    print('extract probe info start')
-    query_info = extract_info(QUERY)
     print('start evaluate map and rank acc')
-    rank1, mAP = map_rank_quick_eval(query_info, test_info, res)
-    write(log_path, '%f\t%f\n' % (rank1, mAP))
-
-def grid_result_eval(predict_path, log_path='grid_eval.log'):
-    pids4probes = np.genfromtxt(predict_path, delimiter=' ')
-    probe_shoot = [0, 0, 0, 0, 0]
-    for i, pids in enumerate(pids4probes):
-        for j, pid in enumerate(pids):
-            if pid - i == 775:
-                if j == 0:
-                    for k in range(5):
-                        probe_shoot[k] += 1
-                elif j < 5:
-                    for k in range(1, 5):
-                        probe_shoot[k] += 1
-                elif j < 10:
-                    for k in range(2, 5):
-                        probe_shoot[k] += 1
-                elif j < 20:
-                    for k in range(3, 5):
-                        probe_shoot[k] += 1
-                elif j < 50:
-                    for k in range(4, 5):
-                        probe_shoot[k] += 1
-                break
-    probe_acc = [shoot / len(pids4probes) for shoot in probe_shoot]
-    write(log_path, predict_path + '\n')
-    write(log_path, '%.2f\t%.2f\t%.2f\n' % (probe_acc[0], probe_acc[1], probe_acc[2]))
-    print(predict_path)
-    print(probe_acc)
-
+    rank1_acc, rank5_acc, rank10_acc, mAP = map_rank_quick_eval(query_info, test_info, res)
+    write(log_path, '%f\t%f\t%f\t%f\n' % (rank1_acc, rank5_acc, rank10_acc, mAP))
 
 if __name__ == '__main__':
-    net = load_model('./market_softmax_pretrain.h5')
+    #net = load_model('./market_softmax_pretrain.h5')
+    net = load_model('./market-pair-pretrain.h5')
+    net = Model(inputs=[net.get_layer('resnet50').get_input_at(0)],
+                  outputs=[net.get_layer('resnet50').get_output_at(0)])
 
-    #testset eval
-    test_path = '../../dataset' + '/Market-1501/bounding_box_test'
-    probe_path = '../../dataset' + '/Market-1501/query'
-    pid_path = 'testset_prediction.log'
-    score_path = 'testset_score.log'  # recording the distace info
-    result_argsort = test_predict(net, probe_path, test_path, pid_path, score_path) # recording the predict index info
+    flag = 2 # 1 for (single query); 0 for (multiple queries)
+    if flag == 1:
+        test_path = '../../dataset' + '/Market-1501/bounding_box_test'
+        probe_path = '../../dataset' + '/Market-1501/query'
+        result_argsort, test_info, query_info = test_predict(net, probe_path,
+                                                             test_path)  # recording the predict index info
+        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
 
-    market_result_eval(result_argsort, log_path='testset_eval.log', TEST=test_path,
-                       QUERY=probe_path)
+    else:
+        gallery_path = '../../dataset' + '/Market-1501/bounding_box_test'
+        probe_path = '../../dataset' + '/Market-1501/query'
+        gt_path = '../../dataset' + '/Market-1501/gt_bbox'
+        result_argsort, test_info, query_info = test_predict_MQ(net, probe_path, gt_path, gallery_path)
 
-
-
-
+        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
