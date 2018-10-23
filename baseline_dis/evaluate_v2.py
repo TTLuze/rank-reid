@@ -240,31 +240,34 @@ def test_predict_MQ(net, probe_path, gt_path, gallery_path):
         result[i] = result[i][result_argsort[i]]
     return result_argsort, test_info, query_info
 
-
 def market_result_eval(result_argsort, test_info, query_info, log_path='market_result_eval.log'):
     res = result_argsort
     print('start evaluate map and rank acc')
     rank1_acc, rank5_acc, rank10_acc, mAP = map_rank_quick_eval(query_info, test_info, res)
     write(log_path, '%f\t%f\t%f\t%f\n' % (rank1_acc, rank5_acc, rank10_acc, mAP))
 
+
+#func evaluate can be used outside
+def evaluate(net, flag, probe_path, gallery_path, gt_path=None): # flag: 1 for (single query); 0 for (multiple queries)
+    if flag == 1:
+        result_argsort, test_info, query_info = test_predict(net, probe_path,
+                                                             gallery_path)  # recording the predict index info
+        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
+
+    else:
+        result_argsort, test_info, query_info = test_predict_MQ(net, probe_path, gt_path, gallery_path)
+        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
+
+
 if __name__ == '__main__':
-    #net = load_model('./market_softmax_pretrain.h5')
+    # net = load_model('./market_softmax_pretrain.h5')
     net = load_model('./market-pair-pretrain.h5')
     net = Model(inputs=[net.get_layer('resnet50').get_input_at(0)],
                   outputs=[net.get_layer('resnet50').get_output_at(0)])
 
-    flag = 2 # 1 for (single query); 0 for (multiple queries)
-    if flag == 1:
-        test_path = '../../dataset' + '/Market-1501/bounding_box_test'
-        probe_path = '../../dataset' + '/Market-1501/query'
-        result_argsort, test_info, query_info = test_predict(net, probe_path,
-                                                             test_path)  # recording the predict index info
-        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
+    gallery_path = '../../dataset' + '/Market-1501/bounding_box_test'
+    probe_path = '../../dataset' + '/Market-1501/query'
+    evaluate(net, 1, probe_path, gallery_path)
 
-    else:
-        gallery_path = '../../dataset' + '/Market-1501/bounding_box_test'
-        probe_path = '../../dataset' + '/Market-1501/query'
-        gt_path = '../../dataset' + '/Market-1501/gt_bbox'
-        result_argsort, test_info, query_info = test_predict_MQ(net, probe_path, gt_path, gallery_path)
-
-        market_result_eval(result_argsort, test_info, query_info, log_path='testset_eval.log')
+    #gt_path = '../../dataset' + '/Market-1501/gt_bbox'
+    #evaluate(net, 0, probe_path, gallery_path, gt_path)
