@@ -13,14 +13,21 @@ dist_path = 'C:\\Users\Administrator\Desktop'
 
 image_path = os.path.join(dir_path, ori)
 x = np.array(scipy.misc.imread(image_path),dtype=np.float32)
-#img = np.array(scipy.misc.imresize(scipy.misc.imread(f),(299,299)),dtype=np.float32)
-# /255-.5
+#x = np.array(scipy.misc.imresize(scipy.misc.imread(image_path),(224,224)),dtype=np.float32)
+x = preprocess_input(x)
 
 
-image_data = preprocess_input(x)
+#perturb the image x
 
 
+#transfrom back
+mean = [103.939, 116.779, 123.68]
+x[..., 2] += mean[2]
+x[..., 1] += mean[1]
+x[..., 0] += mean[0]
+x = x[...,::-1]# 'BGR'->'RGB'    #noted that 'RGB'->'BGR' x = x[..., ::-1]
 
+#save the perturbed image
 x = x.astype(np.uint8)
 image_path = os.path.join(dist_path, image_name2)
 scipy.misc.imsave(image_path, x)
