@@ -84,9 +84,9 @@ def similarity_matrix(query_f, test_f):
     set_session(sess)
 
     if query_f.ndim == 4:
-        query_f = np.squeeze(query_f)
+        query_f = np.squeeze(query_f, axis=(1,2))
     if test_f.ndim == 4:
-        test_f = np.squeeze(test_f)
+        test_f = np.squeeze(test_f, axis=(1,2))
 
     result = sess.run(tensor, {query_t: query_f, test_t: test_f})
     print(result.shape)
